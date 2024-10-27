@@ -1,0 +1,37 @@
+name: Homebrew Formula Test
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  build:
+    runs-on: macos-latest
+
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@v3
+
+      - name: Install Homebrew
+        run: |
+          /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+
+      - name: Update Homebrew
+        run: brew update
+
+      - name: Build and Install Formula
+        run: |
+          cd Formula
+          brew install -v --build-from-source ./curl-http3-libressl.rb
+
+      - name: Test Formula
+        run: |
+          cd Formula
+          brew test ./curl-http3-libressl.rb
+
+      - name: Cleanup Homebrew Cache
+        run: brew cleanup
