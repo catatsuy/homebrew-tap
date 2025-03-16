@@ -1,0 +1,64 @@
+name: Auto Update
+
+on:
+  push:
+    branches: [ main ]
+  schedule:
+    - cron: '0 0 * * *'  # Runs every day at midnight; adjust as needed
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    env:
+      # Generate a unique branch name using the GitHub Actions run number
+      BRANCH_NAME: update-${{ github.run_number }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Run shell script
+        run: |
+          cd Formula
+          ./update_formula.sh
+
+      - name: Check for changes
+        id: check_changes
+        run: |
+          # Check if there are any changes in the repository
+          if [ -n "$(git status --porcelain)" ]; then
+            echo "Changes detected."
+            echo "diff=true" >> $GITHUB_OUTPUT
+          else
+            echo "No changes detected."
+            echo "diff=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Commit changes and push branch
+        if: steps.check_changes.outputs.diff == 'true'
+        run: |
+          # Configure git user
+          git config --local user.name "github-actions"
+          git config --local user.email "github-actions@github.com"
+          # Create and switch to a new branch
+          git checkout -b $BRANCH_NAME
+          # Add changes and commit
+          git add .
+          git commit -m "Automated update by GitHub Actions"
+          # Push the new branch to the remote repository
+          git push --set-upstream origin $BRANCH_NAME
+
+      - name: Authenticate GitHub CLI
+        if: steps.check_changes.outputs.diff == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # Authenticate the GitHub CLI using the provided token
+          echo "$GH_TOKEN" | gh auth login --with-token
+
+      - name: Create Pull Request
+        if: steps.check_changes.outputs.diff == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # Create a pull request using the GitHub CLI
+          gh pr create --base main --head $BRANCH_NAME --title "Automated Update PR" --body "This PR was automatically generated because changes were detected after running the script."
