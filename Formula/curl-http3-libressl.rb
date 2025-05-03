@@ -12,20 +12,20 @@ class CurlHttp3Libressl < Formula
   depends_on "libtool" => :build
 
   resource "libressl" do
-    url "https://ftp.openbsd.org/pub/OpenBSD/LibreSSL/libressl-4.0.0.tar.gz"
-    sha256 "4d841955f0acc3dfc71d0e3dd35f283af461222350e26843fea9731c0246a1e4" # libressl sha256
+    url "https://ftp.openbsd.org/pub/OpenBSD/LibreSSL/libressl-4.1.0.tar.gz"
+    sha256 "0f71c16bd34bdaaccdcb96a5d94a4921bfb612ec6e0eba7a80d8854eefd8bb61" # libressl sha256
   end
 
   resource "nghttp3" do
     url "https://github.com/ngtcp2/nghttp3.git",
         using: :git,
-        tag: "v1.8.0",
-        revision: "96ad17fd71d599b78a11e0ff635eccb7d2f6d649" # nghttp3 sha256
+        tag: "v1.9.0",
+        revision: "9ee0c9248f97c502cce01e6c8edcccd3723c61e6" # nghttp3 sha256
   end
 
   resource "ngtcp2" do
-    url "https://github.com/ngtcp2/ngtcp2/archive/refs/tags/v1.11.0.tar.gz"
-    sha256 "144b169aa98ba2ca1f74cf40ff5e93b90a7bb1292f62b7998a8dd5c2a5eb102a" # ngtcp2 sha256
+    url "https://github.com/ngtcp2/ngtcp2/archive/refs/tags/v1.12.0.tar.gz"
+    sha256 "21c565e32b6b0094df282915722833fbf1ad0b1b136b6e7d55740b5368138cc8" # ngtcp2 sha256
   end
 
   def install
