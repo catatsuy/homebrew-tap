@@ -36,7 +36,8 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          bash Formula/update_formula.sh
+          cd Formula
+          bash update_formula.sh
 
       - name: Create pull request
         if: ${{ success() }}
