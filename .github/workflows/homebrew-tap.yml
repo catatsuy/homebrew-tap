@@ -24,13 +24,11 @@ jobs:
         run: brew update
 
       - name: Build and Install Formula
+        env:
+          HOMEBREW_DEVELOPER: 1
         run: |
           cd Formula
           brew install -v --build-from-source ./curl-http3-libressl.rb
-
-      - name: Test Formula
-        run: |
-          cd Formula
           brew test ./curl-http3-libressl.rb
 
       - name: Cleanup Homebrew Cache
