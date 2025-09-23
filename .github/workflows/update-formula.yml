@@ -1,0 +1,73 @@
+name: Update Formula
+
+on:
+  schedule:
+    - cron: '0 18 * * *'
+  workflow_dispatch:
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Download purl
+        run: |
+          curl -sL https://github.com/catatsuy/purl/releases/latest/download/purl-linux-amd64.tar.gz | tar xz -C /tmp
+
+      - name: Move purl to /usr/local/bin
+        run: |
+          sudo mv /tmp/purl /usr/local/bin/
+
+      - name: Configure git
+        run: |
+          git config user.name "github-actions[bot]"
+
+      - name: Update formula
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          bash Formula/update_formula.sh
+
+      - name: Create pull request
+        if: ${{ success() }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if git diff --quiet; then
+            echo "No changes detected; skipping PR creation."
+            exit 0
+          fi
+
+          DEFAULT_BRANCH=$(gh repo view --json defaultBranchRef --jq '.defaultBranchRef.name')
+          BRANCH="update-formula-$(date +%Y%m%d-%H%M%S)"
+
+          git checkout -b "$BRANCH"
+          git add Formula/curl-http3-libressl.rb
+          git commit -m "Update curl-http3-libressl formula"
+          git push origin "$BRANCH"
+
+          pr_body=$(cat <<'EOT'
+          Automated formula update triggered by the scheduled workflow.
+
+          - [ ] I have reviewed the changes and verified the build locally.
+          EOT
+          )
+
+          gh pr create \
+            --title "Update curl-http3-libressl formula" \
+            --body "$pr_body" \
+            --base "$DEFAULT_BRANCH" \
+            --head "$BRANCH"
