@@ -2,8 +2,8 @@
 class CurlHttp3Libressl < Formula
   desc "Get a file from an HTTP, HTTPS or FTP server"
   homepage "https://curl.se"
-  url "https://curl.se/download/curl-8.15.0.tar.bz2"
-  sha256 "699a6d2192322792c88088576cff5fe188452e6ea71e82ca74409f07ecc62563" # curl sha256
+  url "https://curl.se/download/curl-8.16.0.tar.bz2"
+  sha256 "9459180ab4933b30d0778ddd71c91fe2911fab731c46e59b3f4c8385b1596c91" # curl sha256
   license "curl"
 
   depends_on "pkg-config" => :build
@@ -24,8 +24,8 @@ class CurlHttp3Libressl < Formula
   end
 
   resource "ngtcp2" do
-    url "https://github.com/ngtcp2/ngtcp2/archive/refs/tags/v1.14.0.tar.gz"
-    sha256 "c09273b6dc5d7e04c528e71e69542c82d31dee1a5664b53c84b3e63c33b85000" # ngtcp2 sha256
+    url "https://github.com/ngtcp2/ngtcp2/archive/refs/tags/v1.15.1.tar.gz"
+    sha256 "1119e0c661cda5234cf6c3b9cbd17a16081730df18d5d0484c97e4a407dc6a97" # ngtcp2 sha256
   end
 
   def install
