@@ -23,17 +23,15 @@ jobs:
       - name: Update Homebrew
         run: brew update
 
-      - name: Add this repository as a tap
-        run: |
-          brew tap catatsuy/tap .
-
       - name: Build and Install Formula
         run: |
-          brew install -v --build-from-source catatsuy/tap/curl-http3-libressl
+          cd Formula
+          brew install -v --build-from-source ./curl-http3-libressl.rb
 
       - name: Test Formula
         run: |
-          brew test catatsuy/tap/curl-http3-libressl
+          cd Formula
+          brew test ./curl-http3-libressl.rb
 
       - name: Cleanup Homebrew Cache
         run: brew cleanup
