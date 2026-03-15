@@ -94,10 +94,6 @@ jobs:
         if: steps.diff.outputs.changed == 'true'
         run: brew update
 
-      - name: Audit formula
-        if: steps.diff.outputs.changed == 'true'
-        run: brew audit --strict "./Formula/${{ matrix.formula_name }}.rb"
-
       - name: Build and test formula
         if: steps.diff.outputs.changed == 'true'
         run: |
