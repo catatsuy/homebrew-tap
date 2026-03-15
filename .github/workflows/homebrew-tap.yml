@@ -9,30 +9,10 @@ on:
       - main
 
 jobs:
-  discover:
-    runs-on: ubuntu-latest
-    outputs:
-      formula_files: ${{ steps.list.outputs.formula_files }}
-    steps:
-      - name: Check out the repository
-        uses: actions/checkout@v6
-
-      - name: List formula files
-        id: list
-        run: |
-          formula_files=$(find Formula -maxdepth 1 -name '*.rb' -print | sort | jq -Rsc 'split("\n") | map(select(length > 0))')
-          echo "formula_files=$formula_files" >> "$GITHUB_OUTPUT"
-
   build:
-    needs: discover
     runs-on: macos-latest
     env:
       HOMEBREW_DEVELOPER: true
-    strategy:
-      fail-fast: false
-      matrix:
-        formula_file: ${{ fromJson(needs.discover.outputs.formula_files) }}
-
     steps:
       - name: Check out the repository
         uses: actions/checkout@v6
@@ -40,11 +20,14 @@ jobs:
       - name: Update Homebrew
         run: brew update
 
-      - name: Build and install formula
+      - name: Build and test formulae
         run: |
-          formula_name="$(basename "${{ matrix.formula_file }}" .rb)"
-          brew install -v --build-from-source "./${{ matrix.formula_file }}"
-          brew test "$formula_name"
+          find Formula -maxdepth 1 -name '*.rb' -print | sort | while IFS= read -r formula_file; do
+            formula_name="$(basename "$formula_file" .rb)"
+            brew install -v --build-from-source "./${formula_file}"
+            brew test "$formula_name"
+            brew uninstall --force "$formula_name"
+          done
 
       - name: Cleanup Homebrew Cache
         run: brew cleanup
