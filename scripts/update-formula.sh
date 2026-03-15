@@ -292,7 +292,9 @@ main() {
   fi
 
   if [ "$1" = "--all" ]; then
-    mapfile -t formulas < <(list_formula_names)
+    while IFS= read -r formula_name; do
+      formulas+=("$formula_name")
+    done < <(list_formula_names)
   else
     formulas=("$@")
   fi

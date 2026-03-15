@@ -29,9 +29,13 @@ jobs:
           REQUESTED_FORMULA: ${{ github.event.inputs.formula }}
         run: |
           if [ -n "$REQUESTED_FORMULA" ]; then
-            formula_names=$(jq -c --arg name "$REQUESTED_FORMULA" '[.formulas[] | select(.name == $name) | .name]' formulas.json)
+            if bash ./scripts/update-formula --list | grep -Fxq "$REQUESTED_FORMULA"; then
+              formula_names="[\"$REQUESTED_FORMULA\"]"
+            else
+              formula_names="[]"
+            fi
           else
-            formula_names=$(jq -c '[.formulas[].name]' formulas.json)
+            formula_names=$(bash ./scripts/update-formula --list-json)
           fi
 
           if [ "$formula_names" = "[]" ]; then
@@ -44,6 +48,8 @@ jobs:
   update:
     needs: discover
     runs-on: macos-latest
+    env:
+      HOMEBREW_DEVELOPER: true
     strategy:
       fail-fast: false
       matrix:
@@ -52,13 +58,32 @@ jobs:
       - name: Check out the repository
         uses: actions/checkout@v6
 
+      - name: Download purl
+        run: |
+          case "$(uname -s)" in
+            Linux) os="linux" ;;
+            Darwin) os="darwin" ;;
+            *) echo "Unsupported OS: $(uname -s)" >&2; exit 1 ;;
+          esac
+
+          case "$(uname -m)" in
+            x86_64) arch="amd64" ;;
+            arm64|aarch64) arch="arm64" ;;
+            *) echo "Unsupported architecture: $(uname -m)" >&2; exit 1 ;;
+          esac
+
+          curl -sL "https://github.com/catatsuy/purl/releases/latest/download/purl-${os}-${arch}.tar.gz" | tar xz -C /tmp
+
+      - name: Move purl to /usr/local/bin
+        run: sudo mv /tmp/purl /usr/local/bin/
+
       - name: Update formula
-        run: ./scripts/update-formula.sh "${{ matrix.formula_name }}"
+        run: bash ./scripts/update-formula "${{ matrix.formula_name }}"
 
       - name: Check for changes
         id: diff
         run: |
-          if git diff --quiet -- "Formula" "formulas.json" "scripts"; then
+          if git diff --quiet -- "Formula" "scripts"; then
             echo "changed=false" >> "$GITHUB_OUTPUT"
             exit 0
           fi
@@ -71,14 +96,10 @@ jobs:
 
       - name: Audit formula
         if: steps.diff.outputs.changed == 'true'
-        env:
-          HOMEBREW_DEVELOPER: 1
         run: brew audit --strict "./Formula/${{ matrix.formula_name }}.rb"
 
       - name: Build and test formula
         if: steps.diff.outputs.changed == 'true'
-        env:
-          HOMEBREW_DEVELOPER: 1
         run: |
           brew install -v --build-from-source "./Formula/${{ matrix.formula_name }}.rb"
           brew test "${{ matrix.formula_name }}"
