@@ -2,34 +2,57 @@
 set -euo pipefail
 
 ROOT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
-CONFIG_FILE="${ROOT_DIR}/formulas.json"
 GITHUB_API_URL="${GITHUB_API_URL:-https://api.github.com}"
 
-require_command() {
+usage() {
+  cat <<'EOF'
+Usage:
+  scripts/update-formula.sh --list
+  scripts/update-formula.sh --list-json
+  scripts/update-formula.sh --all
+  scripts/update-formula.sh <formula-name> [<formula-name> ...]
+EOF
+}
+
+ensure_command() {
   if ! command -v "$1" >/dev/null 2>&1; then
     echo "missing required command: $1" >&2
     exit 1
   fi
 }
 
-usage() {
-  cat <<'EOF'
-Usage:
-  scripts/update-formula.sh --all
-  scripts/update-formula.sh <formula-name> [<formula-name> ...]
-EOF
+list_formula_names() {
+  printf '%s\n' "curl-http3-libressl"
+}
+
+list_formula_names_json() {
+  local first=1
+  local formula_name
+
+  printf '['
+
+  while IFS= read -r formula_name; do
+    if [ $first -eq 0 ]; then
+      printf ','
+    fi
+
+    printf '"%s"' "$formula_name"
+    first=0
+  done < <(list_formula_names)
+
+  printf ']\n'
 }
 
 sha256_file() {
   local file=$1
 
   if command -v shasum >/dev/null 2>&1; then
-    shasum -a 256 "$file" | awk '{print $1}'
+    shasum -a 256 "$file" | cut -d ' ' -f1
     return
   fi
 
   if command -v sha256sum >/dev/null 2>&1; then
-    sha256sum "$file" | awk '{print $1}'
+    sha256sum "$file" | cut -d ' ' -f1
     return
   fi
 
@@ -37,8 +60,17 @@ sha256_file() {
   exit 1
 }
 
-list_formula_names() {
-  jq -r '.formulas[].name' "$CONFIG_FILE"
+sha256_for_url() {
+  local url=$1
+  local tmpfile
+  local sha
+
+  tmpfile=$(mktemp)
+  curl -fsSL --retry 3 "$url" -o "$tmpfile"
+  sha=$(sha256_file "$tmpfile")
+  rm -f "$tmpfile"
+
+  printf '%s\n' "$sha"
 }
 
 fetch_repo_tags_tsv() {
@@ -70,234 +102,177 @@ fetch_repo_tags_tsv() {
 }
 
 latest_tag_for_repo() {
-  local repo=$1
-  local tag_match=$2
-  local cache_file=$3
+  local tag_match=$1
+  local cache_file=$2
 
-  awk -F '\t' '{print $1}' "$cache_file" | grep -E "$tag_match" | sort -V | tail -n 1
+  cut -f1 "$cache_file" | grep -E "$tag_match" | sort -V | tail -n 1
 }
 
 revision_for_tag() {
   local tag=$1
   local cache_file=$2
+  local cached_tag
+  local revision
 
-  awk -F '\t' -v tag="$tag" '$1 == tag {print $2; exit}' "$cache_file"
+  while IFS=$'\t' read -r cached_tag revision; do
+    if [ "$cached_tag" = "$tag" ]; then
+      printf '%s\n' "$revision"
+      return 0
+    fi
+  done < "$cache_file"
+
+  return 1
 }
 
-version_from_tag() {
-  local transform=$1
-  local tag=$2
+purl_replace() {
+  local path=$1
+  local pattern=$2
+  local replacement=$3
+  local rule
 
-  case "$transform" in
-    tag)
-      printf '%s\n' "$tag"
-      ;;
-    trim_v)
-      printf '%s\n' "${tag#v}"
-      ;;
-    curl_underscores)
-      local version=${tag#curl-}
-      printf '%s\n' "${version//_/.}"
-      ;;
-    *)
-      echo "unsupported version_from_tag: ${transform}" >&2
-      exit 1
-      ;;
-  esac
+  rule="@${pattern}@${replacement}@"
+
+  if ! purl -overwrite -replace "$rule" "$path"; then
+    echo "purl replace failed for ${path}: ${pattern}" >&2
+    exit 1
+  fi
 }
 
-render_url_template() {
-  local template=$1
-  local tag=$2
-  local version=$3
-  local rendered=$template
-
-  rendered=${rendered//\$\{tag\}/$tag}
-  rendered=${rendered//\$\{version\}/$version}
-  printf '%s\n' "$rendered"
-}
-
-update_formula_archive() {
-  local file=$1
-  local target_type=$2
-  local resource_name=$3
-  local new_url=$4
-  local new_sha=$5
-  local checksum_comment=$6
-
-  TARGET_TYPE=$target_type \
-  RESOURCE_NAME=$resource_name \
-  NEW_URL=$new_url \
-  NEW_SHA=$new_sha \
-  CHECKSUM_COMMENT=$checksum_comment \
-  perl -0pi -e '
-    my $updated = 0;
-    my $target_type = $ENV{TARGET_TYPE};
-    my $resource_name = $ENV{RESOURCE_NAME};
-    my $new_url = $ENV{NEW_URL};
-    my $new_sha = $ENV{NEW_SHA};
-    my $checksum_comment = $ENV{CHECKSUM_COMMENT};
-
-    if ($target_type eq "formula") {
-      $updated += s{(\A.*?^\s*url\s+")[^"]+(")}{$1.$new_url.$2}ems;
-      $updated += s{(\A.*?^\s*sha256\s+")[0-9a-f]+("\s+#\s+\Q$checksum_comment\E)}{$1.$new_sha.$2}ems;
-    } else {
-      $updated += s{(resource "\Q$resource_name\E" do.*?^\s*url\s+")[^"]+(")}{$1.$new_url.$2}ems;
-      $updated += s{(resource "\Q$resource_name\E" do.*?^\s*sha256\s+")[0-9a-f]+("\s+#\s+\Q$checksum_comment\E)}{$1.$new_sha.$2}ems;
-    }
-
-    die "failed to update archive target\n" unless $updated >= 2;
-  ' "$file"
-}
-
-update_formula_git() {
-  local file=$1
-  local resource_name=$2
-  local new_tag=$3
-  local new_revision=$4
-  local revision_comment=$5
-
-  RESOURCE_NAME=$resource_name \
-  NEW_TAG=$new_tag \
-  NEW_REVISION=$new_revision \
-  REVISION_COMMENT=$revision_comment \
-  perl -0pi -e '
-    my $updated = 0;
-    my $resource_name = $ENV{RESOURCE_NAME};
-    my $new_tag = $ENV{NEW_TAG};
-    my $new_revision = $ENV{NEW_REVISION};
-    my $revision_comment = $ENV{REVISION_COMMENT};
-
-    $updated += s{(resource "\Q$resource_name\E" do.*?^\s*tag:\s+")[^"]+(",)}{$1.$new_tag.$2}ems;
-    $updated += s{(resource "\Q$resource_name\E" do.*?^\s*revision:\s+")[0-9a-f]+("\s+#\s+\Q$revision_comment\E)}{$1.$new_revision.$2}ems;
-
-    die "failed to update git target\n" unless $updated >= 2;
-  ' "$file"
-}
-
-update_target() {
-  local formula_name=$1
-  local formula_file=$2
-  local target_json=$3
-  local target_name
-  local target_type
-  local resource_name
-  local kind
-  local repo
-  local tag_match
-  local revision_comment
-  local checksum_comment
-  local url_template
-  local transform
+update_curl_http3_libressl() {
+  local formula_path="${ROOT_DIR}/Formula/curl-http3-libressl.rb"
   local tag_cache
-  local latest_tag
-  local latest_revision
-  local version
-  local download_url
-  local tmpfile
-  local new_sha
+  local curl_tag
+  local curl_version
+  local curl_url
+  local curl_sha
+  local libressl_tag
+  local libressl_version
+  local libressl_url
+  local libressl_sha
+  local nghttp3_tag
+  local nghttp3_revision
+  local ngtcp2_tag
+  local ngtcp2_url
+  local ngtcp2_sha
 
-  target_name=$(printf '%s' "$target_json" | jq -r '.name')
-  target_type=$(printf '%s' "$target_json" | jq -r '.target')
-  resource_name=$(printf '%s' "$target_json" | jq -r '.resource // empty')
-  kind=$(printf '%s' "$target_json" | jq -r '.kind')
-  repo=$(printf '%s' "$target_json" | jq -r '.repo')
-  tag_match=$(printf '%s' "$target_json" | jq -r '.tag_match')
-
-  echo "Updating ${formula_name}:${target_name}"
+  ensure_command purl
 
   tag_cache=$(mktemp)
-  fetch_repo_tags_tsv "$repo" >"$tag_cache"
 
-  latest_tag=$(latest_tag_for_repo "$repo" "$tag_match" "$tag_cache")
-  if [ -z "$latest_tag" ]; then
+  fetch_repo_tags_tsv "curl/curl" >"$tag_cache"
+  curl_tag=$(latest_tag_for_repo '^curl-[0-9]+_[0-9]+_[0-9]+$' "$tag_cache")
+  if [ -z "$curl_tag" ]; then
     rm -f "$tag_cache"
-    echo "failed to resolve latest tag for ${repo}" >&2
+    echo "failed to resolve latest tag for curl/curl" >&2
     exit 1
   fi
 
-  case "$kind" in
-    archive)
-      transform=$(printf '%s' "$target_json" | jq -r '.version_from_tag')
-      checksum_comment=$(printf '%s' "$target_json" | jq -r '.checksum_comment')
-      url_template=$(printf '%s' "$target_json" | jq -r '.url_template')
-      version=$(version_from_tag "$transform" "$latest_tag")
-      download_url=$(render_url_template "$url_template" "$latest_tag" "$version")
-      tmpfile=$(mktemp)
-      curl -fsSL --retry 3 "$download_url" -o "$tmpfile"
-      new_sha=$(sha256_file "$tmpfile")
-      rm -f "$tmpfile"
-      update_formula_archive "$formula_file" "$target_type" "$resource_name" "$download_url" "$new_sha" "$checksum_comment"
-      echo "Resolved ${target_name} tag ${latest_tag} (${new_sha})"
-      ;;
-    git)
-      revision_comment=$(printf '%s' "$target_json" | jq -r '.revision_comment')
-      latest_revision=$(revision_for_tag "$latest_tag" "$tag_cache")
-      if [ -z "$latest_revision" ]; then
-        rm -f "$tag_cache"
-        echo "failed to resolve revision for ${repo}:${latest_tag}" >&2
-        exit 1
-      fi
-      update_formula_git "$formula_file" "$resource_name" "$latest_tag" "$latest_revision" "$revision_comment"
-      echo "Resolved ${target_name} tag ${latest_tag} (${latest_revision})"
-      ;;
-    *)
-      rm -f "$tag_cache"
-      echo "unsupported target kind: ${kind}" >&2
-      exit 1
-      ;;
-  esac
+  curl_version=${curl_tag#curl-}
+  curl_version=${curl_version//_/.}
+  curl_url="https://curl.se/download/curl-${curl_version}.tar.bz2"
+  curl_sha=$(sha256_for_url "$curl_url")
+
+  fetch_repo_tags_tsv "libressl/portable" >"$tag_cache"
+  libressl_tag=$(latest_tag_for_repo '^v[0-9]+\.[0-9]+\.[0-9]+$' "$tag_cache")
+  if [ -z "$libressl_tag" ]; then
+    rm -f "$tag_cache"
+    echo "failed to resolve latest tag for libressl/portable" >&2
+    exit 1
+  fi
+
+  libressl_version=${libressl_tag#v}
+  libressl_url="https://ftp.openbsd.org/pub/OpenBSD/LibreSSL/libressl-${libressl_version}.tar.gz"
+  libressl_sha=$(sha256_for_url "$libressl_url")
+
+  fetch_repo_tags_tsv "ngtcp2/nghttp3" >"$tag_cache"
+  nghttp3_tag=$(latest_tag_for_repo '^v[0-9]+\.[0-9]+\.[0-9]+$' "$tag_cache")
+  if [ -z "$nghttp3_tag" ]; then
+    rm -f "$tag_cache"
+    echo "failed to resolve latest tag for ngtcp2/nghttp3" >&2
+    exit 1
+  fi
+
+  if ! nghttp3_revision=$(revision_for_tag "$nghttp3_tag" "$tag_cache"); then
+    rm -f "$tag_cache"
+    echo "failed to resolve revision for ngtcp2/nghttp3:${nghttp3_tag}" >&2
+    exit 1
+  fi
+
+  fetch_repo_tags_tsv "ngtcp2/ngtcp2" >"$tag_cache"
+  ngtcp2_tag=$(latest_tag_for_repo '^v[0-9]+\.[0-9]+\.[0-9]+$' "$tag_cache")
+  if [ -z "$ngtcp2_tag" ]; then
+    rm -f "$tag_cache"
+    echo "failed to resolve latest tag for ngtcp2/ngtcp2" >&2
+    exit 1
+  fi
+
+  ngtcp2_url="https://github.com/ngtcp2/ngtcp2/archive/refs/tags/${ngtcp2_tag}.tar.gz"
+  ngtcp2_sha=$(sha256_for_url "$ngtcp2_url")
 
   rm -f "$tag_cache"
+
+  purl_replace "$formula_path" 'url "https://curl\.se/download/curl-[0-9]+\.[0-9]+\.[0-9]+\.tar\.bz2"' "url \"${curl_url}\""
+  purl_replace "$formula_path" '[0-9a-f]+" # curl sha256' "\"${curl_sha}\" # curl sha256"
+
+  purl_replace "$formula_path" 'url "https://ftp\.openbsd\.org/pub/OpenBSD/LibreSSL/libressl-[0-9]+\.[0-9]+\.[0-9]+\.tar\.gz"' "url \"${libressl_url}\""
+  purl_replace "$formula_path" '[0-9a-f]+" # libressl sha256' "\"${libressl_sha}\" # libressl sha256"
+
+  purl_replace "$formula_path" 'tag: "v[0-9]+\.[0-9]+\.[0-9]+",' "tag: \"${nghttp3_tag}\","
+  purl_replace "$formula_path" '[0-9a-f]+" # nghttp3 revision' "\"${nghttp3_revision}\" # nghttp3 revision"
+
+  purl_replace "$formula_path" 'url "https://github\.com/ngtcp2/ngtcp2/archive/refs/tags/v[0-9]+\.[0-9]+\.[0-9]+\.tar\.gz"' "url \"${ngtcp2_url}\""
+  purl_replace "$formula_path" '[0-9a-f]+" # ngtcp2 sha256' "\"${ngtcp2_sha}\" # ngtcp2 sha256"
+
+  echo "Updated curl-http3-libressl"
 }
 
 update_formula() {
   local formula_name=$1
-  local formula_json
-  local formula_file
 
-  formula_json=$(jq -c --arg name "$formula_name" '.formulas[] | select(.name == $name)' "$CONFIG_FILE")
-  if [ -z "$formula_json" ]; then
-    echo "unknown formula: ${formula_name}" >&2
-    exit 1
-  fi
-
-  formula_file=$(printf '%s' "$formula_json" | jq -r '.file')
-  formula_file="${ROOT_DIR}/${formula_file}"
-
-  while IFS= read -r target_json; do
-    update_target "$formula_name" "$formula_file" "$target_json"
-  done < <(printf '%s' "$formula_json" | jq -c '.targets[]')
+  case "$formula_name" in
+    curl-http3-libressl)
+      update_curl_http3_libressl
+      ;;
+    *)
+      echo "unknown formula: ${formula_name}" >&2
+      exit 1
+      ;;
+  esac
 }
 
 main() {
   local formulas=()
   local formula_name
 
-  require_command jq
-  require_command curl
-  require_command perl
-  require_command grep
-  require_command sort
-  require_command awk
-
-  if [ ! -f "$CONFIG_FILE" ]; then
-    echo "missing config file: $CONFIG_FILE" >&2
-    exit 1
-  fi
-
   if [ $# -eq 0 ]; then
     usage >&2
     exit 1
   fi
 
-  if [ "$1" = "--all" ]; then
-    while IFS= read -r formula_name; do
-      formulas+=("$formula_name")
-    done < <(list_formula_names)
-  else
-    formulas=("$@")
-  fi
+  case "$1" in
+    --list)
+      list_formula_names
+      return
+      ;;
+    --list-json)
+      list_formula_names_json
+      return
+      ;;
+    --all)
+      while IFS= read -r formula_name; do
+        formulas+=("$formula_name")
+      done < <(list_formula_names)
+      ;;
+    *)
+      formulas=("$@")
+      ;;
+  esac
+
+  ensure_command curl
+  ensure_command cut
+  ensure_command grep
+  ensure_command jq
+  ensure_command sort
 
   for formula_name in "${formulas[@]}"; do
     update_formula "$formula_name"

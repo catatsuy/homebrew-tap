@@ -29,13 +29,13 @@ jobs:
           REQUESTED_FORMULA: ${{ github.event.inputs.formula }}
         run: |
           if [ -n "$REQUESTED_FORMULA" ]; then
-            if bash ./scripts/update-formula --list | grep -Fxq "$REQUESTED_FORMULA"; then
+            if bash ./scripts/update-formula.sh --list | grep -Fxq "$REQUESTED_FORMULA"; then
               formula_names="[\"$REQUESTED_FORMULA\"]"
             else
               formula_names="[]"
             fi
           else
-            formula_names=$(bash ./scripts/update-formula --list-json)
+            formula_names=$(bash ./scripts/update-formula.sh --list-json)
           fi
 
           if [ "$formula_names" = "[]" ]; then
@@ -78,7 +78,7 @@ jobs:
         run: sudo mv /tmp/purl /usr/local/bin/
 
       - name: Update formula
-        run: bash ./scripts/update-formula "${{ matrix.formula_name }}"
+        run: bash ./scripts/update-formula.sh "${{ matrix.formula_name }}"
 
       - name: Check for changes
         id: diff
