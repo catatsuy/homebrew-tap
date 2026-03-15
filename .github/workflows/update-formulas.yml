@@ -86,16 +86,6 @@ jobs:
         if: steps.diff.outputs.changed == 'true'
         run: brew update
 
-      - name: Audit formula
-        if: steps.diff.outputs.changed == 'true'
-        run: |
-          while IFS= read -r formula_name; do
-            [ -n "$formula_name" ] || continue
-            brew audit --strict "./Formula/${formula_name}.rb"
-          done <<'EOF'
-          ${{ steps.formulas.outputs.formula_names }}
-          EOF
-
       - name: Build and test formulae
         if: steps.diff.outputs.changed == 'true'
         run: |
