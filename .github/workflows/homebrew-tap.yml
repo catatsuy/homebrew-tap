@@ -9,27 +9,42 @@ on:
       - main
 
 jobs:
+  discover:
+    runs-on: ubuntu-latest
+    outputs:
+      formula_files: ${{ steps.list.outputs.formula_files }}
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@v6
+
+      - name: List formula files
+        id: list
+        run: |
+          formula_files=$(find Formula -maxdepth 1 -name '*.rb' -print | sort | jq -Rsc 'split("\n") | map(select(length > 0))')
+          echo "formula_files=$formula_files" >> "$GITHUB_OUTPUT"
+
   build:
+    needs: discover
     runs-on: macos-latest
+    env:
+      HOMEBREW_DEVELOPER: true
+    strategy:
+      fail-fast: false
+      matrix:
+        formula_file: ${{ fromJson(needs.discover.outputs.formula_files) }}
 
     steps:
       - name: Check out the repository
         uses: actions/checkout@v6
 
-      - name: Install Homebrew
-        run: |
-          /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
-
       - name: Update Homebrew
         run: brew update
 
-      - name: Build and Install Formula
-        env:
-          HOMEBREW_DEVELOPER: 1
+      - name: Build and install formula
         run: |
-          cd Formula
-          brew install -v --build-from-source ./curl-http3-libressl.rb
-          brew test ./curl-http3-libressl.rb
+          formula_name="$(basename "${{ matrix.formula_file }}" .rb)"
+          brew install -v --build-from-source "./${{ matrix.formula_file }}"
+          brew test "$formula_name"
 
       - name: Cleanup Homebrew Cache
         run: brew cleanup
