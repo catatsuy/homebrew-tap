@@ -212,16 +212,16 @@ update_curl_http3_libressl() {
   rm -f "$tag_cache"
 
   purl_replace "$formula_path" 'url "https://curl\.se/download/curl-[0-9]+\.[0-9]+\.[0-9]+\.tar\.bz2"' "url \"${curl_url}\""
-  purl_replace "$formula_path" '[0-9a-f]+" # curl sha256' "\"${curl_sha}\" # curl sha256"
+  purl_replace "$formula_path" 'sha256 ".*" # curl sha256' "sha256 \"${curl_sha}\" # curl sha256"
 
   purl_replace "$formula_path" 'url "https://ftp\.openbsd\.org/pub/OpenBSD/LibreSSL/libressl-[0-9]+\.[0-9]+\.[0-9]+\.tar\.gz"' "url \"${libressl_url}\""
-  purl_replace "$formula_path" '[0-9a-f]+" # libressl sha256' "\"${libressl_sha}\" # libressl sha256"
+  purl_replace "$formula_path" 'sha256 ".*" # libressl sha256' "sha256 \"${libressl_sha}\" # libressl sha256"
 
   purl_replace "$formula_path" 'tag: "v[0-9]+\.[0-9]+\.[0-9]+",' "tag: \"${nghttp3_tag}\","
-  purl_replace "$formula_path" '[0-9a-f]+" # nghttp3 revision' "\"${nghttp3_revision}\" # nghttp3 revision"
+  purl_replace "$formula_path" 'revision: ".*".*' "revision: \"${nghttp3_revision}\" # nghttp3 revision"
 
   purl_replace "$formula_path" 'url "https://github\.com/ngtcp2/ngtcp2/archive/refs/tags/v[0-9]+\.[0-9]+\.[0-9]+\.tar\.gz"' "url \"${ngtcp2_url}\""
-  purl_replace "$formula_path" '[0-9a-f]+" # ngtcp2 sha256' "\"${ngtcp2_sha}\" # ngtcp2 sha256"
+  purl_replace "$formula_path" 'sha256 ".*" # ngtcp2 sha256' "sha256 \"${ngtcp2_sha}\" # ngtcp2 sha256"
 
   echo "Updated curl-http3-libressl"
 }
