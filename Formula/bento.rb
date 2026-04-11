@@ -7,8 +7,8 @@ class Bento < Formula
 
   if Hardware::CPU.arm?
     # renovate: datasource=custom.bento-darwin-arm64 depName=catatsuy/bento asset=bento-darwin-arm64.tar.gz
-    url "https://github.com/catatsuy/bento/releases/download/v0.3.4/bento-darwin-arm64.tar.gz"
-    sha256 "7a920dda9e6c0e6e86ec6e4e27f17f0aa72fae0af008dc502f4c333844fff2ab"
+    url "https://github.com/catatsuy/bento/archive/refs/tags/v0.3.5.tar.gz"
+    sha256 "3c73a6f1f52e0a54137fa6671d0d1e2cb294e88468c77e095ebc4f4ac16fb94a"
   else
     # renovate: datasource=custom.bento-darwin-amd64 depName=catatsuy/bento asset=bento-darwin-amd64.tar.gz
     url "https://github.com/catatsuy/bento/releases/download/v0.3.4/bento-darwin-amd64.tar.gz"
