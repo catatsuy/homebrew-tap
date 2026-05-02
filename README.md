@@ -5,6 +5,7 @@ brew install catatsuy/tap/bento
 brew install catatsuy/tap/notify-slack
 brew install catatsuy/tap/purl
 brew install catatsuy/tap/curl-http3-libressl
+brew install catatsuy/tap/curl-http3-openssl4-ech
 ```
 
 Managed formula updates are applied with:
