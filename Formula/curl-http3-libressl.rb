@@ -2,8 +2,8 @@
 class CurlHttp3Libressl < Formula
   desc "Get a file from an HTTP, HTTPS or FTP server"
   homepage "https://curl.se"
-  url "https://curl.se/download/curl-8.17.0.tar.bz2"
-  sha256 "230032528ce5f85594d4f3eace63364c4244ccc3c801b7f8db1982722f2761f4" # curl sha256
+  url "https://curl.se/download/curl-8.20.0.tar.bz2"
+  sha256 "4be48e69cf467246cb97d369b85d78a08528f2b37cffef2418ee16e6a4eb596e" # curl sha256
   license "curl"
 
   depends_on "pkg-config" => :build
@@ -12,8 +12,8 @@ class CurlHttp3Libressl < Formula
   depends_on "libtool" => :build
 
   resource "libressl" do
-    url "https://ftp.openbsd.org/pub/OpenBSD/LibreSSL/libressl-4.2.1.tar.gz"
-    sha256 "6d5c2f58583588ea791f4c8645004071d00dfa554a5bf788a006ca1eb5abd70b" # libressl sha256
+    url "https://ftp.openbsd.org/pub/OpenBSD/LibreSSL/libressl-4.3.1.tar.gz"
+    sha256 "c2db42ace14e7d5419826fab35a742ec6e4d12725a051a51d0cea3c10ba0fa50" # libressl sha256
   end
 
   resource "nghttp3" do
@@ -24,8 +24,8 @@ class CurlHttp3Libressl < Formula
   end
 
   resource "ngtcp2" do
-    url "https://github.com/ngtcp2/ngtcp2/archive/refs/tags/v1.21.0.tar.gz"
-    sha256 "1c9016a2b4691a835e3510028ddc851042a3ef99598322866befb89e58043eca" # ngtcp2 sha256
+    url "https://github.com/ngtcp2/ngtcp2/archive/refs/tags/v1.22.1.tar.gz"
+    sha256 "a83f46b17e07ad91ff1c8b843adcba99578d1e62007ededa7d52cd097ef64a52" # ngtcp2 sha256
   end
 
   def install
