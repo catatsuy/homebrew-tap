@@ -7,8 +7,8 @@ class Purl < Formula
 
   if Hardware::CPU.arm?
     # renovate: datasource=custom.purl-darwin-arm64 depName=catatsuy/purl asset=purl-darwin-arm64.tar.gz
-    url "https://github.com/catatsuy/purl/releases/download/v0.2.7/purl-darwin-arm64.tar.gz"
-    sha256 "3ba3fbcaee965701fcd49867feac0b943a16deeb6bfca06ef453267a1401e051"
+    url "https://github.com/catatsuy/purl/archive/refs/tags/v0.2.9.tar.gz"
+    sha256 "3cc607cb753d045ae99a7f7162f6b089a2483bb8724080f5ae12f3114462d50a"
   else
     # renovate: datasource=custom.purl-darwin-amd64 depName=catatsuy/purl asset=purl-darwin-amd64.tar.gz
     url "https://github.com/catatsuy/purl/releases/download/v0.2.7/purl-darwin-amd64.tar.gz"
