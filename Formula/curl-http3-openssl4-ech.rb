@@ -2,8 +2,8 @@
 class CurlHttp3Openssl4Ech < Formula
   desc "Get a file from an HTTP, HTTPS or FTP server with HTTP/3 and ECH support"
   homepage "https://curl.se"
-  url "https://curl.se/download/curl-8.20.0.tar.bz2"
-  sha256 "4be48e69cf467246cb97d369b85d78a08528f2b37cffef2418ee16e6a4eb596e" # curl sha256
+  url "https://curl.se/download/curl-8.22.0.tar.bz2"
+  sha256 "5d956a6a22b3c279f50c421ee5d3c9e9d660cb6f115dcf881b579e952130549c" # curl sha256
   license "curl"
 
   depends_on "pkg-config" => :build
@@ -13,20 +13,20 @@ class CurlHttp3Openssl4Ech < Formula
   depends_on "perl" => :build
 
   resource "openssl" do
-    url "https://github.com/openssl/openssl/releases/download/openssl-4.0.0/openssl-4.0.0.tar.gz"
-    sha256 "c32cf49a959c4f345f9606982dd36e7d28f7c58b19c2e25d75624d2b3d2f79ac" # openssl sha256
+    url "https://github.com/openssl/openssl/releases/download/openssl-4.0.2/openssl-4.0.2.tar.gz"
+    sha256 "736b467530f916737b7031310ccb21d8218c6229e61e8e160cd1d3458cd543a8" # openssl sha256
   end
 
   resource "nghttp3" do
     url "https://github.com/ngtcp2/nghttp3.git",
         using: :git,
-        tag: "v1.15.0",
-        revision: "d326f4c1eb3f6a780d77793b30e16756c498f913" # nghttp3 revision
+        tag: "v1.18.0",
+        revision: "dbfc24286138cb0b6490160e7ca87fe1ce6722a0" # nghttp3 revision
   end
 
   resource "ngtcp2" do
-    url "https://github.com/ngtcp2/ngtcp2/archive/refs/tags/v1.22.1.tar.gz"
-    sha256 "a83f46b17e07ad91ff1c8b843adcba99578d1e62007ededa7d52cd097ef64a52" # ngtcp2 sha256
+    url "https://github.com/ngtcp2/ngtcp2/archive/refs/tags/v1.25.0.tar.gz"
+    sha256 "fff5d584940be77005d0135045ebe4760851f818c4349c6516a49b8d8dfa1e55" # ngtcp2 sha256
   end
 
   def install
