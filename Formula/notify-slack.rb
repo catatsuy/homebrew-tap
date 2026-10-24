@@ -7,8 +7,8 @@ class NotifySlack < Formula
 
   if Hardware::CPU.arm?
     # renovate: datasource=custom.notify-slack-darwin-arm64 depName=catatsuy/notify_slack asset=notify_slack-darwin-arm64.tar.gz
-    url "https://github.com/catatsuy/notify_slack/releases/download/v0.5.9/notify_slack-darwin-arm64.tar.gz"
-    sha256 "c74b286474231e0b5cc66aa612d5e981f88c7e768e9a8cc7063270e0556ad144"
+    url "https://github.com/catatsuy/notify_slack/archive/refs/tags/v0.5.16.tar.gz"
+    sha256 "8ddf81b2e041aa5cbd941388ab3fe906c22d9eefeb25d1e3bff1f4a6e4a0e862"
   else
     # renovate: datasource=custom.notify-slack-darwin-amd64 depName=catatsuy/notify_slack asset=notify_slack-darwin-amd64.tar.gz
     url "https://github.com/catatsuy/notify_slack/releases/download/v0.5.9/notify_slack-darwin-amd64.tar.gz"
